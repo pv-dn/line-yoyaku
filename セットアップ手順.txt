@@ -2,44 +2,58 @@
 ================================================
 
 ■ いまできていること
-- スマホ向け予約画面（index.html）がブラウザで動く
-- 店舗名・メニュー・時間・定休は APP_CONFIG で差し替え可能
-- LIFF ID を入れると LINE 内起動に対応（未設定ならデモモード）
+- スマホ向け予約画面（index.html）
+- LIFF（LINE内表示）
+- 予約確定 → 店舗LINEへ通知（api/reserve.js）
+- 公開URL: https://line-yoyaku-ashen.vercel.app
 
-■ あなたがやること（LINE側）
+
+■ あなたがやること（予約通知を有効にする）
 ------------------------------------------------
-1. https://developers.line.biz/ を開く
-2. プロバイダーを開く
-3. 「新しいチャネルを作成」→「LINEログイン」を選ぶ
-4. チャネル名など必要項目を入れて作成
-5. 作成したチャネルを開く → 「LIFF」タブ
-6. 「追加」を押す
-   - LIFFアプリ名: おうちサロン予約（任意）
-   - サイズ: Full
-   - Endpoint URL: 公開した予約ページのURL（例: https://xxxx.vercel.app/）
-   - Scope: profile にチェック（任意）
-7. 発行された LIFF ID をコピー
-8. index.html の APP_CONFIG.liffId に貼り付ける
+【A】Messaging API のトークンを取る
+1. LINE Developers を開く
+2. プロバイダー e-yyoosshhyy を開く
+3. Messaging API チャネル「予約テスト」を開く
+4. 「Messaging API」タブへ
+5. 「チャネルアクセストークン（長期）」を発行してコピー
 
-■ 公式アカウント側
+【B】店舗オーナーのユーザーIDを取る
+1. スマホのLINEで、公式アカウント（予約テストと連携したもの）を友だち追加
+2. このURLをLINEで開く:
+   https://liff.line.me/2011846202-T1D8OMqg?setup=1
+3. 画面に「店舗通知用のユーザーID」が出るのでコピー
+
+【C】Vercel に環境変数を入れる
+1. https://vercel.com/eee13/line-yoyaku を開く
+2. Settings → Environment Variables
+3. 次を追加（Production）
+   - LINE_CHANNEL_ACCESS_TOKEN = （Aでコピーしたトークン）
+   - SHOP_LINE_USER_ID = （BでコピーしたユーザーID）
+   - NOTIFY_CUSTOMER = false  （お客様にも送るなら true）
+4. 保存したら Redeploy（再デプロイ）
+
+【D】動作確認
+1. LINEから予約画面を開いてテスト予約
+2. 店舗側のLINEに「【新規予約】」メッセージが届けば成功
+
+
+■ LIFF設定（済）
+------------------------------------------------
+- LIFF ID: 2011846202-T1D8OMqg
+- Endpoint URL: https://line-yoyaku-ashen.vercel.app
+- LINEから開くURL: https://liff.line.me/2011846202-T1D8OMqg
+
+
+■ 公式アカウントに予約ボタンを置く
 ------------------------------------------------
 1. LINE Official Account Manager を開く
-2. トークやリッチメニューに「予約する」ボタンを作る
-3. リンク先に LIFF URL（https://liff.line.me/LIFFのID）を入れる
+2. トークやリッチメニューに「予約する」を追加
+3. リンク先:
+   https://liff.line.me/2011846202-T1D8OMqg
 
-■ 公開（ネットに置く）
+
+■ 注意
 ------------------------------------------------
-予約画面は HTTPS のURLが必要です。
-例:
-- Vercel に index.html をアップ
-- GitHub Pages にアップ
-
-公開URLができたら、上の Endpoint URL に設定してください。
-
-■ まだやっていないこと（次の開発）
-------------------------------------------------
-- 店舗への自動通知（Messaging API / メール / スプレッドシート）
-- 本物の空き枠管理（ダブルブッキング防止）
-- 管理者画面
-
-まずは「LINEから予約画面が開く」までがゴールです。
+- 通知を受け取る人は、公式アカウントを友だち追加している必要があります
+- トークンやユーザーIDは公開しない（index.html には書かない）
+- まだないもの: 空き枠の本格管理、スプレッドシート保存
