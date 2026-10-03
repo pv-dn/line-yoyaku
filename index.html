@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>おうちサロン 予約</title>
+  <!-- LIFF SDK（ID未設定でもブラウザ単体で動く） -->
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            salon: {
+              50: '#f4f7f4',
+              100: '#e4ede6',
+              200: '#c8dbc9',
+              300: '#a3c2a8',
+              400: '#7aa682',
+              500: '#5a8f64',
+              600: '#45734e',
+              700: '#385c40',
+              800: '#2f4a35',
+              900: '#283d2d',
+            },
+            mist: {
+              50: '#faf9f7',
+              100: '#f3f0eb',
+              200: '#e7e1d7',
+            }
+          },
+          fontFamily: {
+            sans: ['"Hiragino Sans"', '"Hiragino Kaku Gothic ProN"', '"Noto Sans JP"', 'Meiryo', 'sans-serif'],
+          },
+          boxShadow: {
+            soft: '0 8px 30px rgba(40, 61, 45, 0.08)',
+            glow: '0 10px 28px rgba(90, 143, 100, 0.28)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+
+    :root {
+      --bg-a: #f7f5f1;
+      --bg-b: #eef4ef;
+      --bg-c: #f4ebe6;
+    }
+
+    body {
+      font-family: "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, var(--bg-c), transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, var(--bg-b), transparent 50%),
+        linear-gradient(180deg, var(--bg-a), #f3f6f3 55%, #eef2ef);
+      min-height: 100dvh;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .step-card {
+      transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+    }
+
+    .choice-btn {
+      transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .choice-btn:active {
+      transform: scale(0.97);
+    }
+
+    .choice-btn.is-selected {
+      background: linear-gradient(135deg, #5a8f64, #45734e);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(90, 143, 100, 0.28);
+    }
+
+    .time-btn.is-selected {
+      background: #5a8f64;
+      border-color: #5a8f64;
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(90, 143, 100, 0.25);
+    }
+
+    .date-btn.is-selected {
+      background: #2f4a35;
+      border-color: #2f4a35;
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(47, 74, 53, 0.22);
+    }
+
+    .progress-dot {
+      transition: all 0.25s ease;
+    }
+
+    .progress-dot.is-active {
+      width: 1.75rem;
+      background: #5a8f64;
+    }
+
+    .progress-dot.is-done {
+      background: #a3c2a8;
+    }
+
+    .fade-in {
+      animation: fadeUp 0.35s ease both;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .toast {
+      transform: translateY(120%);
+      opacity: 0;
+      transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .confirm-btn:disabled {
+      opacity: 0.45;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body class="text-salon-900">
+  <div class="mx-auto min-h-dvh max-w-md px-4 pb-28 pt-5">
+    <!-- Header -->
+    <header class="mb-4 flex items-center gap-3">
+      <div class="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-salon-500 to-salon-700 shadow-glow">
+        <svg viewBox="0 0 48 48" class="h-7 w-7 text-white" fill="none" aria-hidden="true">
+          <path d="M14 30c2.5-7 6-11 10-11s7.5 4 10 11" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M18 20c1.2-3.5 3.2-5.5 6-5.5s4.8 2 6 5.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="24" cy="33.5" r="2.2" fill="currentColor"/>
+        </svg>
+        <span class="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#e8b4a0] ring-2 ring-mist-50"></span>
+      </div>
+      <div class="min-w-0 flex-1">
+        <p id="storeEyebrow" class="text-[11px] font-medium tracking-[0.18em] text-salon-500">HOME SALON</p>
+        <h1 id="storeTitle" class="truncate text-xl font-bold tracking-wide text-salon-900">おうちサロン 予約</h1>
+      </div>
+    </header>
+
+    <!-- Mode badge -->
+    <div id="modeBadge" class="mb-4 flex items-center gap-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-100">
+      <span class="inline-block h-2 w-2 rounded-full bg-amber-400"></span>
+      <span id="modeBadgeText">デモモード（ブラウザ単体で動作中）</span>
+    </div>
+
+    <!-- Progress -->
+    <div class="mb-5 flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 shadow-soft backdrop-blur">
+      <div class="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+        <span id="progressLabel" class="text-sm font-semibold text-salon-800">ステップ 1 / 3</span>
+        <span id="progressHint" class="text-xs text-salon-500">メニューを選んでね</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="progress-dot is-active h-2 w-2 rounded-full bg-salon-200" data-step="1"></span>
+        <span class="progress-dot h-2 w-2 rounded-full bg-salon-200" data-step="2"></span>
+        <span class="progress-dot h-2 w-2 rounded-full bg-salon-200" data-step="3"></span>
+      </div>
+    </div>
+
+    <!-- Summary chips -->
+    <div id="summaryBar" class="mb-4 hidden flex-wrap gap-2 fade-in">
+      <span id="chipMenu" class="hidden rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-salon-700 shadow-sm ring-1 ring-salon-100"></span>
+      <span id="chipDate" class="hidden rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-salon-700 shadow-sm ring-1 ring-salon-100"></span>
+      <span id="chipTime" class="hidden rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-salon-700 shadow-sm ring-1 ring-salon-100"></span>
+    </div>
+
+    <!-- Step 1: Menu -->
+    <section id="step1" class="step-card fade-in rounded-3xl bg-white/85 p-5 shadow-soft backdrop-blur">
+      <div class="mb-4">
+        <h2 class="text-lg font-bold text-salon-900">メニューを選択</h2>
+        <p class="mt-1 text-sm text-salon-500">気になるメニューをタップしてね</p>
+      </div>
+      <div id="menuList" class="grid gap-3"></div>
+    </section>
+
+    <!-- Step 2: Date & Time -->
+    <section id="step2" class="step-card mt-4 hidden rounded-3xl bg-white/85 p-5 shadow-soft backdrop-blur">
+      <div class="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-bold text-salon-900">日時を選択</h2>
+          <p class="mt-1 text-sm text-salon-500">直近の空き日から選んでね</p>
+        </div>
+        <button type="button" id="backToMenu" class="rounded-full bg-mist-100 px-3 py-1.5 text-xs font-medium text-salon-700 ring-1 ring-salon-100">戻る</button>
+      </div>
+
+      <p class="mb-2 text-xs font-semibold tracking-wide text-salon-500">DATE</p>
+      <div id="dateList" class="mb-5 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"></div>
+
+      <p class="mb-2 text-xs font-semibold tracking-wide text-salon-500">TIME</p>
+      <div id="timeList" class="grid grid-cols-3 gap-2.5"></div>
+    </section>
+
+    <!-- Step 3: Customer info -->
+    <section id="step3" class="step-card mt-4 hidden rounded-3xl bg-white/85 p-5 shadow-soft backdrop-blur">
+      <div class="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-bold text-salon-900">お客様情報</h2>
+          <p class="mt-1 text-sm text-salon-500">予約確認のため入力してね</p>
+        </div>
+        <button type="button" id="backToDate" class="rounded-full bg-mist-100 px-3 py-1.5 text-xs font-medium text-salon-700 ring-1 ring-salon-100">戻る</button>
+      </div>
+
+      <form id="customerForm" class="space-y-4" autocomplete="on" onsubmit="return false;">
+        <label class="block">
+          <span class="mb-1.5 block text-sm font-medium text-salon-700">お名前（ひらがな）</span>
+          <input
+            id="customerName"
+            name="name"
+            type="text"
+            inputmode="text"
+            placeholder="やまだ はなこ"
+            class="w-full rounded-2xl border border-salon-100 bg-mist-50 px-4 py-3.5 text-base text-salon-900 outline-none transition focus:border-salon-400 focus:bg-white focus:ring-4 focus:ring-salon-100"
+          />
+          <span id="nameError" class="mt-1.5 hidden text-xs text-rose-500">ひらがな（とスペース）で入力してね</span>
+        </label>
+
+        <label class="block">
+          <span class="mb-1.5 block text-sm font-medium text-salon-700">電話番号</span>
+          <input
+            id="customerPhone"
+            name="phone"
+            type="tel"
+            inputmode="tel"
+            placeholder="09012345678"
+            class="w-full rounded-2xl border border-salon-100 bg-mist-50 px-4 py-3.5 text-base tracking-wide text-salon-900 outline-none transition focus:border-salon-400 focus:bg-white focus:ring-4 focus:ring-salon-100"
+          />
+          <span id="phoneError" class="mt-1.5 hidden text-xs text-rose-500">10〜11桁の数字で入力してね</span>
+        </label>
+      </form>
+
+      <div class="mt-5 rounded-2xl bg-gradient-to-br from-salon-50 to-mist-100 p-4 ring-1 ring-salon-100">
+        <p class="mb-2 text-xs font-semibold tracking-wide text-salon-500">予約内容プレビュー</p>
+        <dl class="space-y-1.5 text-sm">
+          <div class="flex justify-between gap-3">
+            <dt class="text-salon-500">メニュー</dt>
+            <dd id="previewMenu" class="font-medium text-salon-800">未選択</dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="text-salon-500">日時</dt>
+            <dd id="previewDateTime" class="font-medium text-salon-800">未選択</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- Success -->
+    <section id="successView" class="step-card mt-4 hidden rounded-3xl bg-white/90 p-6 text-center shadow-soft backdrop-blur">
+      <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-salon-100 text-salon-600">
+        <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12.5l4.2 4.2L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2 class="text-xl font-bold text-salon-900">予約リクエストを受け付けました</h2>
+      <p id="successText" class="mt-3 text-sm leading-relaxed text-salon-600"></p>
+      <button type="button" id="resetBtn" class="mt-6 w-full rounded-2xl bg-salon-800 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-salon-900">
+        もう一度試す
+      </button>
+    </section>
+  </div>
+
+  <!-- Sticky confirm -->
+  <div id="confirmBar" class="fixed inset-x-0 bottom-0 z-20 hidden border-t border-white/60 bg-white/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+    <div class="mx-auto max-w-md">
+      <button
+        id="confirmBtn"
+        type="button"
+        disabled
+        class="confirm-btn w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 px-4 py-4 text-base font-bold text-white shadow-glow transition hover:brightness-105 active:scale-[0.985]"
+      >
+        予約を確定する
+      </button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast fixed inset-x-4 bottom-28 z-30 mx-auto max-w-md rounded-2xl bg-salon-900 px-4 py-3 text-center text-sm font-medium text-white shadow-soft">
+    選択内容を更新しました
+  </div>
+
+  <script>
+    /* =========================================================
+     * 店舗ごとの設定（ココナラ納品時はここを書き換える）
+     * ========================================================= */
+    const APP_CONFIG = {
+      // LINE Developers → LIFF → LIFF ID を入れる（未設定ならデモモード）
+      liffId: '',
+
+      storeName: 'おうちサロン 予約',
+      storeEyebrow: 'HOME SALON',
+
+      // 定休日（0=日 ... 6=土）例: 水曜定休
+      closedWeekdays: [3],
+
+      // 表示する日数（定休を除く）
+      dateCount: 10,
+
+      // モックで満席にする時間（デモ用）
+      fullTimes: ['11:30', '16:00'],
+
+      timeSlots: ['10:00', '11:30', '13:00', '14:30', '16:00', '17:30'],
+
+      menus: [
+        { id: 'momi60', name: 'もみほぐし', duration: '60分', price: '¥5,500', desc: '肩・腰をじっくりほぐす定番コース' },
+        { id: 'head30', name: 'ヘッドスパ', duration: '30分', price: '¥3,300', desc: '頭皮ケアでスッキリリセット' },
+        { id: 'foot40', name: 'フットケア', duration: '40分', price: '¥4,400', desc: '足裏中心のリラックスケア' },
+        { id: 'relax90', name: '全身リラックス', duration: '90分', price: '¥8,800', desc: '全身をゆっくり整える贅沢コース' },
+      ],
+    };
+
+    const state = {
+      menuId: null,
+      dateKey: null,
+      time: null,
+      name: '',
+      phone: '',
+      currentStep: 1,
+      booked: false,
+      liffReady: false,
+      liffLoggedIn: false,
+      lineDisplayName: '',
+      lastReservation: null,
+    };
+
+    const els = {
+      storeTitle: document.getElementById('storeTitle'),
+      storeEyebrow: document.getElementById('storeEyebrow'),
+      modeBadge: document.getElementById('modeBadge'),
+      modeBadgeText: document.getElementById('modeBadgeText'),
+      step1: document.getElementById('step1'),
+      step2: document.getElementById('step2'),
+      step3: document.getElementById('step3'),
+      successView: document.getElementById('successView'),
+      menuList: document.getElementById('menuList'),
+      dateList: document.getElementById('dateList'),
+      timeList: document.getElementById('timeList'),
+      progressLabel: document.getElementById('progressLabel'),
+      progressHint: document.getElementById('progressHint'),
+      summaryBar: document.getElementById('summaryBar'),
+      chipMenu: document.getElementById('chipMenu'),
+      chipDate: document.getElementById('chipDate'),
+      chipTime: document.getElementById('chipTime'),
+      confirmBar: document.getElementById('confirmBar'),
+      confirmBtn: document.getElementById('confirmBtn'),
+      customerName: document.getElementById('customerName'),
+      customerPhone: document.getElementById('customerPhone'),
+      nameError: document.getElementById('nameError'),
+      phoneError: document.getElementById('phoneError'),
+      previewMenu: document.getElementById('previewMenu'),
+      previewDateTime: document.getElementById('previewDateTime'),
+      successText: document.getElementById('successText'),
+      toast: document.getElementById('toast'),
+      resetBtn: document.getElementById('resetBtn'),
+      backToMenu: document.getElementById('backToMenu'),
+      backToDate: document.getElementById('backToDate'),
+    };
+
+    let toastTimer = null;
+
+    function pad(n) {
+      return String(n).padStart(2, '0');
+    }
+
+    function formatDateKey(date) {
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    function buildDates(count = APP_CONFIG.dateCount) {
+      const dates = [];
+      const base = new Date();
+      base.setHours(0, 0, 0, 0);
+      let i = 0;
+      while (dates.length < count && i < 60) {
+        const d = new Date(base);
+        d.setDate(base.getDate() + i);
+        if (!APP_CONFIG.closedWeekdays.includes(d.getDay())) {
+          dates.push(d);
+        }
+        i += 1;
+      }
+      return dates;
+    }
+
+    function weekdayLabel(date) {
+      return ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+    }
+
+    function formatDisplayDate(dateKey) {
+      if (!dateKey) return '';
+      const [y, m, d] = dateKey.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      return `${m}/${d}（${weekdayLabel(date)}）`;
+    }
+
+    function getSelectedMenu() {
+      return APP_CONFIG.menus.find((m) => m.id === state.menuId) || null;
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => els.toast.classList.remove('show'), 1600);
+    }
+
+    function isHiraganaName(value) {
+      return /^[\u3041-\u3096ー\s　]+$/.test(value.trim());
+    }
+
+    function isValidPhone(value) {
+      const digits = value.replace(/[-\s]/g, '');
+      return /^0\d{9,10}$/.test(digits);
+    }
+
+    function canConfirm() {
+      return Boolean(
+        state.menuId &&
+        state.dateKey &&
+        state.time &&
+        isHiraganaName(state.name) &&
+        isValidPhone(state.phone) &&
+        !state.booked
+      );
+    }
+
+    function applyStoreBranding() {
+      document.title = APP_CONFIG.storeName;
+      els.storeTitle.textContent = APP_CONFIG.storeName;
+      els.storeEyebrow.textContent = APP_CONFIG.storeEyebrow;
+    }
+
+    function updateModeBadge() {
+      if (state.liffReady) {
+        els.modeBadge.className = 'mb-4 flex items-center gap-2 rounded-2xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-100';
+        els.modeBadgeText.textContent = state.liffLoggedIn
+          ? `LINE連携OK${state.lineDisplayName ? `（${state.lineDisplayName}）` : ''}`
+          : 'LIFF起動中（LINE内）';
+      } else if (APP_CONFIG.liffId) {
+        els.modeBadge.className = 'mb-4 flex items-center gap-2 rounded-2xl bg-sky-50 px-3 py-2 text-xs text-sky-800 ring-1 ring-sky-100';
+        els.modeBadgeText.textContent = 'LIFF設定あり（ブラウザ確認中）';
+      } else {
+        els.modeBadge.className = 'mb-4 flex items-center gap-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-100';
+        els.modeBadgeText.textContent = 'デモモード（ブラウザ単体で動作中）';
+      }
+    }
+
+    function updateProgress() {
+      const hints = {
+        1: 'メニューを選んでね',
+        2: '日時を選んでね',
+        3: 'お客様情報を入力してね',
+      };
+      els.progressLabel.textContent = state.booked ? '完了' : `ステップ ${state.currentStep} / 3`;
+      els.progressHint.textContent = state.booked ? 'ありがとう！' : hints[state.currentStep];
+
+      document.querySelectorAll('.progress-dot').forEach((dot) => {
+        const step = Number(dot.dataset.step);
+        dot.classList.remove('is-active', 'is-done');
+        if (state.booked || step < state.currentStep) dot.classList.add('is-done');
+        if (!state.booked && step === state.currentStep) dot.classList.add('is-active');
+      });
+    }
+
+    function updateSummary() {
+      const menu = getSelectedMenu();
+      const hasAny = Boolean(menu || state.dateKey || state.time);
+      els.summaryBar.classList.toggle('hidden', !hasAny || state.booked);
+
+      if (menu) {
+        els.chipMenu.textContent = `${menu.name} ${menu.duration}`;
+        els.chipMenu.classList.remove('hidden');
+        els.previewMenu.textContent = `${menu.name}（${menu.duration}）`;
+      } else {
+        els.chipMenu.classList.add('hidden');
+        els.previewMenu.textContent = '未選択';
+      }
+
+      if (state.dateKey) {
+        els.chipDate.textContent = formatDisplayDate(state.dateKey);
+        els.chipDate.classList.remove('hidden');
+      } else {
+        els.chipDate.classList.add('hidden');
+      }
+
+      if (state.time) {
+        els.chipTime.textContent = state.time;
+        els.chipTime.classList.remove('hidden');
+      } else {
+        els.chipTime.classList.add('hidden');
+      }
+
+      if (state.dateKey && state.time) {
+        els.previewDateTime.textContent = `${formatDisplayDate(state.dateKey)} ${state.time}`;
+      } else {
+        els.previewDateTime.textContent = '未選択';
+      }
+    }
+
+    function updateConfirmBar() {
+      const show = state.currentStep === 3 && !state.booked;
+      els.confirmBar.classList.toggle('hidden', !show);
+      els.confirmBtn.disabled = !canConfirm();
+    }
+
+    function showStep(step) {
+      state.currentStep = step;
+      els.step1.classList.toggle('hidden', step !== 1 || state.booked);
+      els.step2.classList.toggle('hidden', step !== 2 || state.booked);
+      els.step3.classList.toggle('hidden', step !== 3 || state.booked);
+      els.successView.classList.toggle('hidden', !state.booked);
+
+      [els.step1, els.step2, els.step3, els.successView].forEach((el) => {
+        if (!el.classList.contains('hidden')) {
+          el.classList.remove('fade-in');
+          void el.offsetWidth;
+          el.classList.add('fade-in');
+        }
+      });
+
+      updateProgress();
+      updateSummary();
+      updateConfirmBar();
+    }
+
+    function renderMenus() {
+      els.menuList.innerHTML = APP_CONFIG.menus.map((menu) => `
+        <button
+          type="button"
+          class="choice-btn group flex w-full items-start gap-3 rounded-2xl border border-salon-100 bg-mist-50 px-4 py-4 text-left ${state.menuId === menu.id ? 'is-selected' : ''}"
+          data-menu-id="${menu.id}"
+        >
+          <span class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/80 text-salon-600 ring-1 ring-salon-100 group-[.is-selected]:bg-white/20 group-[.is-selected]:text-white group-[.is-selected]:ring-white/20">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 4c-2.5 3-4 5.2-4 7.5a4 4 0 008 0C16 9.2 14.5 7 12 4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="flex items-center justify-between gap-2">
+              <span class="font-semibold">${menu.name} ${menu.duration}</span>
+              <span class="text-sm font-medium opacity-90">${menu.price}</span>
+            </span>
+            <span class="mt-1 block text-xs opacity-80">${menu.desc}</span>
+          </span>
+        </button>
+      `).join('');
+
+      els.menuList.querySelectorAll('[data-menu-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.menuId = btn.dataset.menuId;
+          renderMenus();
+          updateSummary();
+          showToast('メニューを選択しました');
+          setTimeout(() => showStep(2), 180);
+        });
+      });
+    }
+
+    function renderDates() {
+      const dates = buildDates();
+      els.dateList.innerHTML = dates.map((date) => {
+        const key = formatDateKey(date);
+        const isToday = key === formatDateKey(new Date());
+        const selected = state.dateKey === key;
+        return `
+          <button
+            type="button"
+            class="date-btn choice-btn flex w-[4.5rem] shrink-0 flex-col items-center rounded-2xl border border-salon-100 bg-mist-50 px-2 py-3 ${selected ? 'is-selected' : ''}"
+            data-date="${key}"
+          >
+            <span class="text-[10px] font-medium opacity-80">${isToday ? 'きょう' : weekdayLabel(date)}</span>
+            <span class="mt-1 text-lg font-bold leading-none">${date.getDate()}</span>
+            <span class="mt-1 text-[10px] opacity-70">${date.getMonth() + 1}月</span>
+          </button>
+        `;
+      }).join('');
+
+      els.dateList.querySelectorAll('[data-date]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.dateKey = btn.dataset.date;
+          renderDates();
+          updateSummary();
+          updateConfirmBar();
+          showToast('日付を選択しました');
+          maybeGoToStep3();
+        });
+      });
+    }
+
+    function renderTimes() {
+      els.timeList.innerHTML = APP_CONFIG.timeSlots.map((time) => {
+        const full = APP_CONFIG.fullTimes.includes(time);
+        const selected = state.time === time;
+        return `
+          <button
+            type="button"
+            class="time-btn choice-btn rounded-2xl border border-salon-100 bg-mist-50 px-2 py-3 text-sm font-semibold ${selected ? 'is-selected' : ''} ${full ? 'cursor-not-allowed opacity-40' : ''}"
+            data-time="${time}"
+            ${full ? 'disabled' : ''}
+          >
+            ${full ? `${time}<span class="mt-0.5 block text-[10px] font-medium">満席</span>` : time}
+          </button>
+        `;
+      }).join('');
+
+      els.timeList.querySelectorAll('[data-time]:not(:disabled)').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.time = btn.dataset.time;
+          renderTimes();
+          updateSummary();
+          updateConfirmBar();
+          showToast('時間を選択しました');
+          maybeGoToStep3();
+        });
+      });
+    }
+
+    function maybeGoToStep3() {
+      if (state.dateKey && state.time && state.currentStep === 2) {
+        setTimeout(() => showStep(3), 200);
+      }
+    }
+
+    function validateFields() {
+      const nameOk = isHiraganaName(state.name);
+      const phoneOk = isValidPhone(state.phone);
+      els.nameError.classList.toggle('hidden', !state.name || nameOk);
+      els.phoneError.classList.toggle('hidden', !state.phone || phoneOk);
+      updateConfirmBar();
+    }
+
+    function buildReservationPayload() {
+      const menu = getSelectedMenu();
+      return {
+        storeName: APP_CONFIG.storeName,
+        menuId: menu?.id || '',
+        menuName: menu ? `${menu.name}（${menu.duration}）` : '',
+        price: menu?.price || '',
+        date: state.dateKey,
+        dateLabel: formatDisplayDate(state.dateKey),
+        time: state.time,
+        customerName: state.name.trim(),
+        phone: state.phone.replace(/[-\s]/g, ''),
+        lineDisplayName: state.lineDisplayName || '',
+        createdAt: new Date().toISOString(),
+        source: state.liffReady ? 'liff' : 'browser-demo',
+      };
+    }
+
+    function confirmReservation() {
+      if (!canConfirm()) {
+        validateFields();
+        showToast('入力内容を確認してね');
+        return;
+      }
+
+      const payload = buildReservationPayload();
+      state.lastReservation = payload;
+      state.booked = true;
+
+      // 将来: ここにサーバー送信 / GAS / スプレッドシート連携を足す
+      try {
+        localStorage.setItem('outhisalon_last_reservation', JSON.stringify(payload));
+      } catch (_) {}
+
+      console.log('[reservation]', payload);
+
+      els.successText.innerHTML = `
+        <span class="font-semibold text-salon-800">${payload.customerName}</span> さま<br>
+        ${payload.menuName}<br>
+        ${payload.dateLabel} ${payload.time}<br>
+        <span class="mt-2 inline-block text-xs text-salon-500">TEL: ${payload.phone}</span><br>
+        <span class="mt-3 inline-block text-xs text-salon-400">※デモです。店舗への自動通知はまだありません。</span>
+      `;
+
+      showStep(3);
+      showToast('予約を確定しました（デモ）');
+    }
+
+    function resetAll() {
+      state.menuId = null;
+      state.dateKey = null;
+      state.time = null;
+      state.name = '';
+      state.phone = '';
+      state.booked = false;
+      els.customerName.value = '';
+      els.customerPhone.value = '';
+      els.nameError.classList.add('hidden');
+      els.phoneError.classList.add('hidden');
+      renderMenus();
+      renderDates();
+      renderTimes();
+      showStep(1);
+    }
+
+    async function initLiff() {
+      if (!APP_CONFIG.liffId) {
+        updateModeBadge();
+        return;
+      }
+
+      if (typeof liff === 'undefined') {
+        updateModeBadge();
+        return;
+      }
+
+      try {
+        await liff.init({ liffId: APP_CONFIG.liffId });
+        state.liffReady = true;
+        state.liffLoggedIn = liff.isLoggedIn();
+
+        if (!liff.isLoggedIn() && liff.isInClient()) {
+          // LINEアプリ内ならログインへ（外部ブラウザはデモ継続）
+          liff.login();
+          return;
+        }
+
+        if (liff.isLoggedIn()) {
+          try {
+            const profile = await liff.getProfile();
+            state.lineDisplayName = profile.displayName || '';
+          } catch (_) {}
+        }
+      } catch (err) {
+        console.warn('LIFF init failed, continue as demo', err);
+        state.liffReady = false;
+      }
+
+      updateModeBadge();
+    }
+
+    function bindEvents() {
+      els.customerName.addEventListener('input', (e) => {
+        state.name = e.target.value;
+        validateFields();
+      });
+
+      els.customerPhone.addEventListener('input', (e) => {
+        state.phone = e.target.value;
+        validateFields();
+      });
+
+      els.confirmBtn.addEventListener('click', confirmReservation);
+      els.resetBtn.addEventListener('click', resetAll);
+      els.backToMenu.addEventListener('click', () => showStep(1));
+      els.backToDate.addEventListener('click', () => showStep(2));
+    }
+
+    async function boot() {
+      applyStoreBranding();
+      bindEvents();
+      renderMenus();
+      renderDates();
+      renderTimes();
+      showStep(1);
+      updateModeBadge();
+      await initLiff();
+    }
+
+    boot();
+  </script>
+</body>
+</html>
